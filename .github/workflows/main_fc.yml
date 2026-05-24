@@ -2,14 +2,14 @@ name: FirstCry Restock Tracker
 
 on:
   schedule:
-    - cron: '*/5 * * * *'   # Runs every 5 minutes
-  workflow_dispatch:          # Allows manual trigger from GitHub UI
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 jobs:
   track:
     runs-on: ubuntu-latest
     permissions:
-      contents: write          # Needed to commit seen_items.txt back
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -20,24 +20,39 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-playwright-bs4-requests
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-chromium
+
       - name: Install dependencies
         run: |
           pip install playwright beautifulsoup4 requests
           playwright install chromium
           playwright install-deps chromium
 
-      - name: Run tracker
+      - name: Run tracker (every 60s for 5 minutes)
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-        run: python firstcry_bot.py
-
-      # ✅ This step saves seen_items.txt back to the repo
-      # so the next run remembers what was already seen
-      - name: Save memory file
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add seen_items.txt
-          git diff --staged --quiet || git commit -m "Update seen_items [skip ci]"
-          git push
+          for i in 1 2 3 4 5; do
+            echo "--- Run $i of 5 ---"
+            python firstcry_bot.py
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git pull --rebase
+            git add seen_items.txt
+            git diff --staged --quiet || git commit -m "Update seen_items [skip ci]" && git push
+            if [ $i -lt 5 ]; then
+              echo "Waiting 60 seconds..."
+              sleep 60
+            fi
+          done
