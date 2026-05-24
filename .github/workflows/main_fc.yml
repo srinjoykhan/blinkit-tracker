@@ -43,14 +43,21 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
           for i in 1 2 3 4 5; do
             echo "--- Run $i of 5 ---"
             python firstcry_bot.py
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            # ✅ Stage first, THEN pull, then commit & push
+            git add seen_items.txt
+            git stash
             git pull --rebase
+            git stash pop
             git add seen_items.txt
             git diff --staged --quiet || git commit -m "Update seen_items [skip ci]" && git push
+
             if [ $i -lt 5 ]; then
               echo "Waiting 60 seconds..."
               sleep 60
